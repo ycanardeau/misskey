@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import { promisify } from 'node:util';
 import { Inject, Injectable } from '@nestjs/common';
 import { FastifyRequest, FastifyReply } from 'fastify';
+import { MultipartFields, MultipartValue } from '@fastify/multipart';
 import { DI } from '@/di-symbols.js';
 import { getIpHash } from '@/misc/get-ip-hash.js';
 import type { CacheableLocalUser, ILocalUser, User } from '@/models/entities/User.js';
@@ -90,6 +91,14 @@ export class ApiCallService implements OnApplicationShutdown {
 		});
 	}
 
+	// https://github.com/dongnguyenltqb/api-ts/blob/009c827d2f0f086cf7a84649c17ba2175f442ce3/src/common/api.dto.ts#L82
+	private extractMultipartFields(fields: MultipartFields): Record<string, unknown> {
+		const body = Object.fromEntries(
+			Object.keys(fields).map((key) => ([key, (fields[key] as MultipartValue<unknown>).value])),
+		);
+		return body;
+	}
+
 	public async handleMultipartRequest(
 		endpoint: IEndpoint & { exec: any },
 		request: FastifyRequest<{ Body: Record<string, unknown>, Querystring: Record<string, unknown> }>,
@@ -103,14 +112,15 @@ export class ApiCallService implements OnApplicationShutdown {
 
 		const [path] = await createTemp();
 		await pump(multipartData.file, fs.createWriteStream(path));
-	
-		const token = multipartData.fields['i'];
+
+		const body = this.extractMultipartFields(multipartData.fields);
+		const token = body['i'];
 		if (token != null && typeof token !== 'string') {
 			reply.code(400);
 			return;
 		}
 		this.authenticateService.authenticate(token).then(([user, app]) => {
-			this.call(endpoint, user, app, multipartData.fields, {
+			this.call(endpoint, user, app, body, {
 				name: multipartData.filename,
 				path: path,
 			}, request).then((res: any) => {
