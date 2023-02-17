@@ -21,9 +21,11 @@ type pushNotificationsTypes = {
 	'readAllAntennas': undefined;
 };
 
+type KeyOfPushNotificationsTypes = keyof pushNotificationsTypes;
+
 // Reduce length because push message servers have character limits
-function truncateBody<T extends keyof pushNotificationsTypes>(type: T, body: pushNotificationsTypes[T]): pushNotificationsTypes[T] {
-	if (body === undefined) return body;
+function truncateBody<T extends KeyOfPushNotificationsTypes>(type: T, body: pushNotificationsTypes[KeyOfPushNotificationsTypes] | undefined): pushNotificationsTypes[KeyOfPushNotificationsTypes] | undefined {
+	if (body === undefined) return undefined;
 
 	return {
 		...body,
